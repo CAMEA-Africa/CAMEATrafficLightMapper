@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>CAMEA Light Mapper — Settings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 16px; max-width: 700px; }
+
+        .row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; flex: 1; min-width: 280px; }
+        .card h3 { margin: 0 0 12px; font-size: 15px; }
+
+        .field { margin-bottom: 10px; }
+        .field label { display: block; font-size: 12px; color: #555; margin-bottom: 3px; }
+        .field input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+
+        button { padding: 9px 20px; background: #0070f3; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #005ed9; }
+
+        .result { margin-top: 12px; padding: 10px 14px; border-radius: 6px; font-size: 14px; display: none; }
+        .result.ok { background: #d4edda; color: #155724; display: block; }
+        .result.err { background: #f8d7da; color: #721c24; display: block; }
+
+        nav { margin-bottom: 20px; font-size: 14px; }
+        nav a { margin-right: 14px; color: #0070f3; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/settings.html">Settings</a>
+        <a href="/status.html">Status</a>
+    </nav>
+
+    <h2>Connection Settings</h2>
+
+    <form id="settingsForm">
+        <div class="row">
+            <div class="card">
+                <h3>MySQL</h3>
+                <div class="field"><label>Host</label><input id="mysqlHost" placeholder="localhost" /></div>
+                <div class="field"><label>Port</label><input id="mysqlPort" type="number" value="3306" /></div>
+                <div class="field"><label>Database</label><input id="mysqlDb" /></div>
+                <div class="field"><label>Username</label><input id="mysqlUser" /></div>
+                <div class="field"><label>Password</label><input id="mysqlPass" type="password" placeholder="(leave blank to keep current)" /></div>
+            </div>
+
+            <div class="card">
+                <h3>Feed Target</h3>
+                <div class="field"><label>Target API URL</label><input id="feedUrl" placeholder="https://camea.app/demo/api" /></div>
+                <div class="field"><label>Batch Size</label><input id="feedBatch" type="number" value="5000" /></div>
+                <div class="field"><label>Poll Interval (seconds)</label><input id="feedPoll" type="number" value="10" /></div>
+            </div>
+        </div>
+
+        <button type="submit" id="saveBtn">Save &amp; Test Connection</button>
+        <div class="result" id="result"></div>
+    </form>
+
+    <script>
+async function loadSettings() {
+    const res = await fetch('/api/settings', { cache: 'no-store' });
+    if (!res.ok) return;
+    const s = await res.json();
+
+    document.getElementById('mysqlHost').value = s.mySql.host;
+    document.getElementById('mysqlPort').value = s.mySql.port;
+    document.getElementById('mysqlDb').value = s.mySql.database;
+    document.getElementById('mysqlUser').value = s.mySql.username;
+    document.getElementById('mysqlPass').placeholder = s.mySql.hasPassword ? '(leave blank to keep current)' : '(no password set)';
+
+    document.getElementById('feedUrl').value = s.feed.targetUrl;
+    document.getElementById('feedBatch').value = s.feed.batchSize;
+    document.getElementById('feedPoll').value = s.feed.pollIntervalSeconds;
+}
+
+document.getElementById('settingsForm').addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const body = {
+        mySql: {
+            host: document.getElementById('mysqlHost').value.trim(),
+            port: Number(document.getElementById('mysqlPort').value),
+            database: document.getElementById('mysqlDb').value.trim(),
+            username: document.getElementById('mysqlUser').value.trim(),
+            password: document.getElementById('mysqlPass').value
+        },
+        feed: {
+            targetUrl: document.getElementById('feedUrl').value.trim(),
+            batchSize: Number(document.getElementById('feedBatch').value),
+            pollIntervalSeconds: Number(document.getElementById('feedPoll').value)
+        }
+    };
+
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Testing connection\u2026';
+
+    const resultEl = document.getElementById('result');
+    resultEl.className = 'result';
+
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (res.ok) {
+            resultEl.className = 'result ok';
+            resultEl.textContent = 'Settings saved. MySQL connection OK.';
+            await loadSettings();
+        } else {
+            const data = await res.json().catch(() => ({}));
+            resultEl.className = 'result err';
+            resultEl.textContent = data.error || `HTTP ${res.status}`;
+        }
+    } catch (err) {
+        resultEl.className = 'result err';
+        resultEl.textContent = err.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save & Test Connection';
+    }
+});
+
+loadSettings();
+    </script>
+</body>
+</html>

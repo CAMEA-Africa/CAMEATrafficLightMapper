@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>CAMEA Light Mapper — Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 16px; max-width: 700px; }
+
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+        .card h3 { margin: 0 0 12px; font-size: 15px; }
+
+        table { border-collapse: collapse; width: 100%; }
+        td { padding: 6px 0; font-size: 14px; }
+        td:first-child { color: #555; width: 180px; }
+
+        .error { color: #dc3545; font-weight: 600; }
+
+        nav { margin-bottom: 20px; font-size: 14px; }
+        nav a { margin-right: 14px; color: #0070f3; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/settings.html">Settings</a>
+        <a href="/status.html">Status</a>
+    </nav>
+
+    <h2>Sync Status</h2>
+
+    <div class="card">
+        <h3>Sync State</h3>
+        <table>
+            <tr><td>Last MySQL ID</td><td id="lastId">—</td></tr>
+            <tr><td>Total Records Sent</td><td id="totalSent">—</td></tr>
+            <tr><td>Last Sync</td><td id="lastSync">—</td></tr>
+            <tr><td>Last Error</td><td id="lastError">—</td></tr>
+        </table>
+    </div>
+
+    <script>
+async function loadStatus() {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    if (!res.ok) return;
+    const s = await res.json();
+
+    document.getElementById('lastId').textContent = s.lastProcessedMysqlId || '0';
+    document.getElementById('totalSent').textContent = s.totalSent?.toLocaleString() || '0';
+    document.getElementById('lastSync').textContent = s.lastSyncUtc ? new Date(s.lastSyncUtc).toLocaleString() : 'never';
+
+    const errEl = document.getElementById('lastError');
+    if (s.lastError) {
+        errEl.textContent = s.lastError;
+        errEl.className = 'error';
+    } else {
+        errEl.textContent = 'none';
+        errEl.className = '';
+    }
+}
+
+loadStatus();
+setInterval(loadStatus, 5000);
+    </script>
+</body>
+</html>
